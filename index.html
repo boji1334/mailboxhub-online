@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MailboxHub Online 接码</title>
+  <meta name="description" content="在线 Outlook 邮箱验证码读取工具，支持 Windows、macOS 和 Ubuntu 浏览器使用。">
+  <meta property="og:title" content="MailboxHub Online 接码">
+  <meta property="og:description" content="粘贴 Outlook OAuth2 账号行，在线读取最新邮件和验证码。">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --paper: #ffffff;
+      --ink: #152033;
+      --muted: #667085;
+      --line: #d7deea;
+      --soft: #eef5f2;
+      --blue: #1769e0;
+      --green: #13834f;
+      --amber: #9a640e;
+      --red: #b42318;
+      --shadow: 0 18px 50px rgba(21, 32, 51, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        linear-gradient(135deg, rgba(23, 105, 224, 0.10), transparent 36%),
+        linear-gradient(315deg, rgba(19, 131, 79, 0.09), transparent 40%),
+        var(--bg);
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .shell {
+      width: min(1160px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--ink);
+      font-weight: 900;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 850;
+    }
+
+    .brand-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.76);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .panel {
+      border: 1px solid rgba(215, 222, 234, 0.94);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 30px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 5vw, 52px);
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 78ch;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .section {
+      padding: 20px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-weight: 760;
+    }
+
+    textarea,
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 148px;
+      padding: 12px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    input {
+      min-height: 42px;
+      padding: 8px 10px;
+    }
+
+    textarea:focus,
+    input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(23, 105, 224, 0.12);
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .number {
+      width: 150px;
+      flex: 0 0 150px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 16px;
+      color: #fff;
+      background: var(--blue);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .button.secondary {
+      color: var(--ink);
+      background: #eef2f7;
+    }
+
+    .button.green {
+      background: var(--green);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.62;
+    }
+
+    .status {
+      margin: 14px 0 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      background: #fbfcff;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .status.ok { border-color: rgba(19, 131, 79, 0.25); color: var(--green); background: #f2fbf6; }
+    .status.err { border-color: rgba(180, 35, 24, 0.25); color: var(--red); background: #fff6f5; }
+
+    .platforms {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .platform {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: var(--paper);
+    }
+
+    .platform strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .platform span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .results {
+      margin-top: 16px;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #eef2f7;
+      color: var(--ink);
+      font-weight: 850;
+    }
+
+    .code {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 84px;
+      border-radius: 8px;
+      padding: 7px 10px;
+      color: #073b23;
+      background: #dff8eb;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .muted { color: var(--muted); }
+
+    .body-view {
+      display: none;
+      margin-top: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .body-view.active { display: block; }
+
+    .mail-body {
+      max-height: 420px;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #1f2937;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .footer {
+      margin-top: 16px;
+      padding: 16px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 880px) {
+      .grid,
+      .platforms {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .nav {
+        justify-content: flex-start;
+      }
+
+      .hero,
+      .section {
+        padding: 18px;
+      }
+
+      .number {
+        width: 100%;
+        flex-basis: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">MH</div>
+        <div>
+          <div class="brand-title">MailboxHub Online</div>
+          <span class="brand-sub">Outlook OAuth2 online mailbox code reader</span>
+        </div>
+      </div>
+      <nav class="nav" aria-label="platforms">
+        <span class="chip">Windows</span>
+        <span class="chip">macOS</span>
+        <span class="chip">Ubuntu</span>
+      </nav>
+    </header>
+
+    <section class="panel hero">
+      <h1>在线接收 Outlook 邮箱验证码</h1>
+      <p class="lead">
+        粘贴一行 `email----password----client_id----refresh_token` 格式的账号信息，网页会通过你的 boji1334 后端读取最新邮件，并自动提取验证码。无需安装桌面客户端，三大系统打开浏览器就能用。
+      </p>
+    </section>
+
+    <section class="grid">
+      <div class="panel section">
+        <h2>接码入口</h2>
+        <form id="fetchForm">
+          <label for="accountLine">账号信息</label>
+          <textarea id="accountLine" name="account_line" placeholder="email@outlook.com----password----client_id----refresh_token" required></textarea>
+          <div class="row" style="margin-top:12px">
+            <div class="number">
+              <label for="topCount">读取数量</label>
+              <input id="topCount" name="top" type="number" min="1" max="200" value="20">
+            </div>
+            <button id="fetchButton" class="button green" type="submit">开始接收</button>
+            <button class="button secondary" type="button" id="clearButton">清空</button>
+          </div>
+        </form>
+        <p class="note">默认读取 INBOX 最新邮件。验证码会优先显示在表格中，仍可打开全文查看完整邮件内容。</p>
+        <div id="status" class="status">等待输入账号信息。</div>
+      </div>
+
+      <aside class="panel section">
+        <h2>跨平台使用</h2>
+        <div class="platforms">
+          <div class="platform">
+            <strong>Windows</strong>
+            <span>Chrome、Edge、Firefox 均可打开网页使用。</span>
+          </div>
+          <div class="platform">
+            <strong>macOS</strong>
+            <span>Safari、Chrome、Arc 等浏览器均可使用。</span>
+          </div>
+          <div class="platform">
+            <strong>Ubuntu</strong>
+            <span>Firefox、Chrome、Chromium 都可以在线接码。</span>
+          </div>
+        </div>
+        <p class="note">备用入口：<a href="https://www.boji1334.com/sms" target="_blank" rel="noopener noreferrer">https://www.boji1334.com/sms</a></p>
+        <p class="note">后端接口：<span id="apiBaseText">https://www.boji1334.com</span></p>
+      </aside>
+    </section>
+
+    <section class="panel section results" aria-live="polite">
+      <h2>读取结果</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:64px">编号</th>
+            <th style="width:210px">日期</th>
+            <th>发件人</th>
+            <th>主题</th>
+            <th style="width:120px">验证码</th>
+            <th style="width:160px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="resultRows">
+          <tr><td colspan="6" class="muted">还没有读取结果。</td></tr>
+        </tbody>
+      </table>
+      <div id="bodyView" class="body-view">
+        <div class="row" style="justify-content:space-between;margin-bottom:10px">
+          <strong id="bodyTitle">邮件全文</strong>
+          <button class="button secondary" type="button" id="closeBody">关闭</button>
+        </div>
+        <div class="mail-body" id="mailBody"></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      源码仓库：<a href="https://github.com/boji1334/mailboxhub-online" target="_blank" rel="noopener noreferrer">github.com/boji1334/mailboxhub-online</a>。
+      页面只负责前端展示，邮件读取由你的 boji1334 后端完成。
+    </footer>
+  </main>
+
+  <script>
+    const API_BASE = 'https://www.boji1334.com';
+    const form = document.querySelector('#fetchForm');
+    const accountLine = document.querySelector('#accountLine');
+    const topCount = document.querySelector('#topCount');
+    const fetchButton = document.querySelector('#fetchButton');
+    const clearButton = document.querySelector('#clearButton');
+    const statusBox = document.querySelector('#status');
+    const resultRows = document.querySelector('#resultRows');
+    const bodyView = document.querySelector('#bodyView');
+    const bodyTitle = document.querySelector('#bodyTitle');
+    const mailBody = document.querySelector('#mailBody');
+    const closeBody = document.querySelector('#closeBody');
+
+    let lastAccountLine = '';
+    let lastFolder = 'INBOX';
+
+    function setStatus(message, type = '') {
+      statusBox.textContent = message;
+      statusBox.className = `status ${type}`.trim();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[char]));
+    }
+
+    function params(data) {
+      const body = new URLSearchParams();
+      Object.entries(data).forEach(([key, value]) => body.append(key, value));
+      return body;
+    }
+
+    async function postApi(path, data) {
+      const response = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        body: params(data),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `请求失败：${response.status}`);
+      }
+      return json;
+    }
+
+    function renderRows(rows) {
+      if (!rows.length) {
+        resultRows.innerHTML = '<tr><td colspan="6" class="muted">没有读取到邮件。</td></tr>';
+        return;
+      }
+
+      resultRows.innerHTML = rows.map((row, index) => {
+        const code = row.code
+          ? `<button class="code" type="button" data-copy="${escapeHtml(row.code)}">${escapeHtml(row.code)}</button>`
+          : '<span class="muted">-</span>';
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(row.date || '-')}</td>
+            <td>${escapeHtml(row.sender || '-')}</td>
+            <td>${escapeHtml(row.subject || '-')}</td>
+            <td>${code}</td>
+            <td><button class="button secondary" type="button" data-view="${escapeHtml(row.msg_id)}">查看全文</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function fetchMail() {
+      const value = accountLine.value.trim();
+      if (!value) {
+        setStatus('请先粘贴账号信息。', 'err');
+        return;
+      }
+
+      lastAccountLine = value;
+      bodyView.classList.remove('active');
+      fetchButton.disabled = true;
+      setStatus('正在连接 Outlook 并读取最新邮件...', '');
+      resultRows.innerHTML = '<tr><td colspan="6" class="muted">读取中，请稍候。</td></tr>';
+
+      try {
+        const data = await postApi('/api/sms/fetch', {
+          account_line: value,
+          top: String(topCount.value || '20'),
+        });
+        lastFolder = data.used_folder || 'INBOX';
+        renderRows(data.rows || []);
+        setStatus(`连接成功：${data.account}，token 来源：${data.token_source}，文件夹：${lastFolder}`, 'ok');
+      } catch (error) {
+        resultRows.innerHTML = '<tr><td colspan="6" class="muted">读取失败。</td></tr>';
+        setStatus(error.message || '读取失败。', 'err');
+      } finally {
+        fetchButton.disabled = false;
+      }
+    }
+
+    async function viewMail(msgId) {
+      if (!lastAccountLine || !msgId) return;
+      setStatus('正在读取邮件全文...', '');
+      try {
+        const data = await postApi('/api/sms/view', {
+          account_line: lastAccountLine,
+          msg_id: msgId,
+          folder: lastFolder,
+        });
+        bodyTitle.textContent = data.subject || '邮件全文';
+        mailBody.textContent = data.body_text || '没有正文内容。';
+        bodyView.classList.add('active');
+        setStatus('邮件全文已打开。', 'ok');
+      } catch (error) {
+        setStatus(error.message || '读取全文失败。', 'err');
+      }
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void fetchMail();
+    });
+
+    clearButton.addEventListener('click', () => {
+      accountLine.value = '';
+      resultRows.innerHTML = '<tr><td colspan="6" class="muted">还没有读取结果。</td></tr>';
+      bodyView.classList.remove('active');
+      setStatus('等待输入账号信息。');
+    });
+
+    closeBody.addEventListener('click', () => {
+      bodyView.classList.remove('active');
+    });
+
+    resultRows.addEventListener('click', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const code = target.getAttribute('data-copy');
+      if (code) {
+        await navigator.clipboard.writeText(code).catch(() => {});
+        setStatus(`验证码 ${code} 已复制。`, 'ok');
+        return;
+      }
+
+      const msgId = target.getAttribute('data-view');
+      if (msgId) {
+        void viewMail(msgId);
+      }
+    });
+  </script>
+</body>
+</html>
