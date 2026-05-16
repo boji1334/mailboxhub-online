@@ -505,6 +505,23 @@
       return body;
     }
 
+    function normalizeAccountInput(value) {
+      let text = String(value ?? '')
+        .replace(/[\u200b-\u200f\u202a-\u202e\u2060\ufeff]/g, '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[\u2010-\u2015\u2212\ufe63\uff0d]/g, '-')
+        .trim();
+
+      text = text.replace(/\s*(?:-\s*){4}\s*/g, '----');
+
+      const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (!text.includes('----') && lines.length >= 4 && lines[0].includes('@')) {
+        text = `${lines[0]}----${lines[1]}----${lines[2]}----${lines.slice(3).join('')}`;
+      }
+
+      return text;
+    }
+
     async function postApi(path, data) {
       const response = await fetch(`${API_BASE}${path}`, {
         method: 'POST',
@@ -541,12 +558,13 @@
     }
 
     async function fetchMail() {
-      const value = accountLine.value.trim();
+      const value = normalizeAccountInput(accountLine.value);
       if (!value) {
         setStatus('请先粘贴账号信息。', 'err');
         return;
       }
 
+      accountLine.value = value;
       lastAccountLine = value;
       bodyView.classList.remove('active');
       fetchButton.disabled = true;
