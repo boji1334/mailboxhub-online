@@ -155,7 +155,8 @@
     }
 
     textarea,
-    input {
+    input,
+    select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -174,13 +175,15 @@
       line-height: 1.55;
     }
 
-    input {
+    input,
+    select {
       min-height: 42px;
       padding: 8px 10px;
     }
 
     textarea:focus,
-    input:focus {
+    input:focus,
+    select:focus {
       border-color: var(--blue);
       box-shadow: 0 0 0 3px rgba(23, 105, 224, 0.12);
     }
@@ -313,6 +316,48 @@
       font-weight: 900;
     }
 
+    .quick-result {
+      margin-top: 14px;
+      min-height: 96px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      color: var(--muted);
+      background: #fbfcff;
+      line-height: 1.6;
+    }
+
+    .quick-result.ok {
+      border-color: rgba(19, 131, 79, 0.25);
+      color: var(--green);
+      background: #f2fbf6;
+    }
+
+    .quick-result.err {
+      border-color: rgba(180, 35, 24, 0.25);
+      color: var(--red);
+      background: #fff6f5;
+    }
+
+    .code-big {
+      display: block;
+      margin-top: 4px;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 38px;
+      line-height: 1.22;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 10px;
+    }
+
     .muted { color: var(--muted); }
 
     .body-view {
@@ -391,43 +436,58 @@
     <section class="panel hero">
       <h1>在线接收 Outlook 邮箱验证码</h1>
       <p class="lead">
-        粘贴一行 `email----password----client_id----refresh_token` 格式的账号信息，网页会通过你的 boji1334 后端读取最新邮件，并自动提取验证码。无需安装桌面客户端，三大系统打开浏览器就能用。
+        粘贴一行 `email----password----client_id----refresh_token` 格式的账号信息，点击获取即可查看最近验证码。网页通过 boji1334 后端调用 Outlook OAuth2 / IMAP，不会把 token 放进地址栏。
       </p>
     </section>
 
     <section class="grid">
       <div class="panel section">
-        <h2>接码入口</h2>
-        <form id="fetchForm">
+        <h2>验证码入口</h2>
+        <form id="codeForm">
           <label for="accountLine">账号信息</label>
           <textarea id="accountLine" name="account_line" placeholder="email@outlook.com----password----client_id----refresh_token" required></textarea>
           <div class="row" style="margin-top:12px">
             <div class="number">
+              <label for="provider">平台</label>
+              <select id="provider" name="provider">
+                <option value="openai" selected>OpenAI</option>
+                <option value="any">不限</option>
+              </select>
+            </div>
+            <div class="number">
+              <label for="withinSeconds">时间窗口</label>
+              <input id="withinSeconds" name="within_seconds" type="number" min="1" max="300" value="30">
+            </div>
+            <div class="number">
               <label for="topCount">读取数量</label>
               <input id="topCount" name="top" type="number" min="1" max="200" value="20">
             </div>
-            <button id="fetchButton" class="button green" type="submit">开始接收</button>
+            <button id="codeButton" class="button green" type="submit">获取验证码</button>
             <button class="button secondary" type="button" id="clearButton">清空</button>
           </div>
         </form>
-        <p class="note">默认读取 INBOX 最新邮件。验证码会优先显示在表格中，仍可打开全文查看完整邮件内容。</p>
-        <div id="status" class="status">等待输入账号信息。</div>
+        <p class="note">默认只返回最近 30 秒内的 OpenAI 验证码。需要排查邮件时，可以继续读取邮件列表。</p>
+        <div id="codeResult" class="quick-result">等待输入账号信息。</div>
+        <div class="inline-actions">
+          <button id="fetchButton" class="button secondary" type="button">读取邮件列表</button>
+          <span id="status" class="muted">程序接口：POST /api/v1/code</span>
+        </div>
       </div>
 
       <aside class="panel section">
-        <h2>跨平台使用</h2>
+        <h2>接口使用</h2>
         <div class="platforms">
           <div class="platform">
-            <strong>Windows</strong>
-            <span>Chrome、Edge、Firefox 均可打开网页使用。</span>
+            <strong>客户查看</strong>
+            <span>打开本页面，粘贴账号信息后点击获取验证码。</span>
           </div>
           <div class="platform">
-            <strong>macOS</strong>
-            <span>Safari、Chrome、Arc 等浏览器均可使用。</span>
+            <strong>程序调用</strong>
+            <span>POST /api/v1/code，直接读取 JSON 里的 code 字段。</span>
           </div>
           <div class="platform">
-            <strong>Ubuntu</strong>
-            <span>Firefox、Chrome、Chromium 都可以在线接码。</span>
+            <strong>安全习惯</strong>
+            <span>账号 token 不进 URL，减少浏览器历史和访问日志泄露。</span>
           </div>
         </div>
         <p class="note">备用入口：<a href="https://www.boji1334.com/sms" target="_blank" rel="noopener noreferrer">https://www.boji1334.com/sms</a></p>
@@ -469,12 +529,16 @@
 
   <script>
     const API_BASE = 'https://www.boji1334.com';
-    const form = document.querySelector('#fetchForm');
+    const form = document.querySelector('#codeForm');
     const accountLine = document.querySelector('#accountLine');
+    const provider = document.querySelector('#provider');
+    const withinSeconds = document.querySelector('#withinSeconds');
     const topCount = document.querySelector('#topCount');
+    const codeButton = document.querySelector('#codeButton');
     const fetchButton = document.querySelector('#fetchButton');
     const clearButton = document.querySelector('#clearButton');
     const statusBox = document.querySelector('#status');
+    const codeResult = document.querySelector('#codeResult');
     const resultRows = document.querySelector('#resultRows');
     const bodyView = document.querySelector('#bodyView');
     const bodyTitle = document.querySelector('#bodyTitle');
@@ -484,9 +548,13 @@
     let lastAccountLine = '';
     let lastFolder = 'INBOX';
 
-    function setStatus(message, type = '') {
+    function setStatus(message) {
       statusBox.textContent = message;
-      statusBox.className = `status ${type}`.trim();
+    }
+
+    function setCodeResult(message, type = '') {
+      codeResult.innerHTML = message;
+      codeResult.className = `quick-result ${type}`.trim();
     }
 
     function escapeHtml(value) {
@@ -522,16 +590,77 @@
       return text;
     }
 
-    async function postApi(path, data) {
+    async function postJson(path, data) {
+      const response = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json.message || json.error || `请求失败：${response.status}`);
+      }
+      return json;
+    }
+
+    async function postForm(path, data) {
       const response = await fetch(`${API_BASE}${path}`, {
         method: 'POST',
         body: params(data),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) {
-        throw new Error(json.error || `请求失败：${response.status}`);
+        throw new Error(json.error || json.message || `请求失败：${response.status}`);
       }
       return json;
+    }
+
+    function readAccount() {
+      const value = normalizeAccountInput(accountLine.value);
+      if (!value) {
+        setCodeResult('请先粘贴账号信息。', 'err');
+        return '';
+      }
+      accountLine.value = value;
+      lastAccountLine = value;
+      return value;
+    }
+
+    async function fetchCode() {
+      const value = readAccount();
+      if (!value) return;
+
+      bodyView.classList.remove('active');
+      codeButton.disabled = true;
+      setCodeResult('正在读取最近邮件...', '');
+      setStatus('正在调用 POST /api/v1/code');
+
+      try {
+        const data = await postJson('/api/v1/code', {
+          account_line: value,
+          provider: provider.value || 'openai',
+          within_seconds: Number(withinSeconds.value || 30),
+          top: Number(topCount.value || 20),
+        });
+
+        if (data.ok) {
+          const age = Number.isFinite(Number(data.age_seconds)) ? `${data.age_seconds} 秒前` : '';
+          setCodeResult(
+            `${escapeHtml(data.provider || '验证码')} 验证码<span class="code-big">${escapeHtml(data.code)}</span>` +
+            `<span class="muted">${escapeHtml(age)} ${escapeHtml(data.subject || '')}</span>`,
+            'ok',
+          );
+          setStatus(`已读取：${escapeHtml(data.email || '')}`);
+        } else {
+          setCodeResult(escapeHtml(data.message || '未找到验证码。'), 'err');
+          setStatus(`接口返回：${escapeHtml(data.reason || 'not_found')}`);
+        }
+      } catch (error) {
+        setCodeResult(escapeHtml(error.message || '读取失败。'), 'err');
+        setStatus('读取失败');
+      } finally {
+        codeButton.disabled = false;
+      }
     }
 
     function renderRows(rows) {
@@ -558,30 +687,25 @@
     }
 
     async function fetchMail() {
-      const value = normalizeAccountInput(accountLine.value);
-      if (!value) {
-        setStatus('请先粘贴账号信息。', 'err');
-        return;
-      }
+      const value = readAccount();
+      if (!value) return;
 
-      accountLine.value = value;
-      lastAccountLine = value;
       bodyView.classList.remove('active');
       fetchButton.disabled = true;
-      setStatus('正在连接 Outlook 并读取最新邮件...', '');
+      setStatus('正在连接 Outlook 并读取邮件列表...');
       resultRows.innerHTML = '<tr><td colspan="6" class="muted">读取中，请稍候。</td></tr>';
 
       try {
-        const data = await postApi('/api/sms/fetch', {
+        const data = await postForm('/api/sms/fetch', {
           account_line: value,
           top: String(topCount.value || '20'),
         });
         lastFolder = data.used_folder || 'INBOX';
         renderRows(data.rows || []);
-        setStatus(`连接成功：${data.account}，token 来源：${data.token_source}，文件夹：${lastFolder}`, 'ok');
+        setStatus(`邮件列表已读取：${data.account}，文件夹：${lastFolder}`);
       } catch (error) {
         resultRows.innerHTML = '<tr><td colspan="6" class="muted">读取失败。</td></tr>';
-        setStatus(error.message || '读取失败。', 'err');
+        setStatus(error.message || '读取失败。');
       } finally {
         fetchButton.disabled = false;
       }
@@ -589,9 +713,9 @@
 
     async function viewMail(msgId) {
       if (!lastAccountLine || !msgId) return;
-      setStatus('正在读取邮件全文...', '');
+      setStatus('正在读取邮件全文...');
       try {
-        const data = await postApi('/api/sms/view', {
+        const data = await postForm('/api/sms/view', {
           account_line: lastAccountLine,
           msg_id: msgId,
           folder: lastFolder,
@@ -599,14 +723,18 @@
         bodyTitle.textContent = data.subject || '邮件全文';
         mailBody.textContent = data.body_text || '没有正文内容。';
         bodyView.classList.add('active');
-        setStatus('邮件全文已打开。', 'ok');
+        setStatus('邮件全文已打开。');
       } catch (error) {
-        setStatus(error.message || '读取全文失败。', 'err');
+        setStatus(error.message || '读取全文失败。');
       }
     }
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
+      void fetchCode();
+    });
+
+    fetchButton.addEventListener('click', () => {
       void fetchMail();
     });
 
@@ -614,7 +742,8 @@
       accountLine.value = '';
       resultRows.innerHTML = '<tr><td colspan="6" class="muted">还没有读取结果。</td></tr>';
       bodyView.classList.remove('active');
-      setStatus('等待输入账号信息。');
+      setCodeResult('等待输入账号信息。');
+      setStatus('程序接口：POST /api/v1/code');
     });
 
     closeBody.addEventListener('click', () => {
@@ -628,7 +757,7 @@
       const code = target.getAttribute('data-copy');
       if (code) {
         await navigator.clipboard.writeText(code).catch(() => {});
-        setStatus(`验证码 ${code} 已复制。`, 'ok');
+        setStatus(`验证码 ${code} 已复制。`);
         return;
       }
 
