@@ -358,6 +358,54 @@
       margin-top: 10px;
     }
 
+    .loading {
+      display: none;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--muted);
+      background: #fbfcff;
+    }
+
+    .loading.active { display: block; }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+      border: 3px solid #d6deea;
+      border-top-color: var(--green);
+      border-radius: 50%;
+      vertical-align: -4px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .progress {
+      height: 6px;
+      margin-top: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #e8edf5;
+    }
+
+    .progress span {
+      display: block;
+      width: 42%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--green);
+      animation: slide 1.1s ease-in-out infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes slide {
+      0% { transform: translateX(-110%); }
+      50% { transform: translateX(80%); }
+      100% { transform: translateX(260%); }
+    }
+
     .muted { color: var(--muted); }
 
     .body-view {
@@ -466,12 +514,12 @@
             <button class="button secondary" type="button" id="clearButton">清空</button>
           </div>
         </form>
-        <p class="note">默认只返回最近 30 秒内的 OpenAI 验证码。需要排查邮件时，可以继续读取邮件列表。</p>
-        <div id="codeResult" class="quick-result">等待输入账号信息。</div>
-        <div class="inline-actions">
-          <button id="fetchButton" class="button secondary" type="button">读取邮件列表</button>
-          <span id="status" class="muted">程序接口：POST /api/v1/code</span>
+        <p class="note">默认只返回最近 30 秒内的 OpenAI 验证码。程序也可以直接调用后端 `POST /api/v1/code` 获取 code 字段。</p>
+        <div id="loading" class="loading">
+          <span class="spinner"></span><span id="loadingText">正在读取最近验证码...</span>
+          <div class="progress"><span></span></div>
         </div>
+        <div id="codeResult" class="quick-result">等待输入账号信息。</div>
       </div>
 
       <aside class="panel section">
@@ -495,32 +543,6 @@
       </aside>
     </section>
 
-    <section class="panel section results" aria-live="polite">
-      <h2>读取结果</h2>
-      <table>
-        <thead>
-          <tr>
-            <th style="width:64px">编号</th>
-            <th style="width:210px">日期</th>
-            <th>发件人</th>
-            <th>主题</th>
-            <th style="width:120px">验证码</th>
-            <th style="width:160px">操作</th>
-          </tr>
-        </thead>
-        <tbody id="resultRows">
-          <tr><td colspan="6" class="muted">还没有读取结果。</td></tr>
-        </tbody>
-      </table>
-      <div id="bodyView" class="body-view">
-        <div class="row" style="justify-content:space-between;margin-bottom:10px">
-          <strong id="bodyTitle">邮件全文</strong>
-          <button class="button secondary" type="button" id="closeBody">关闭</button>
-        </div>
-        <div class="mail-body" id="mailBody"></div>
-      </div>
-    </section>
-
     <footer class="footer">
       源码仓库：<a href="https://github.com/boji1334/mailboxhub-online" target="_blank" rel="noopener noreferrer">github.com/boji1334/mailboxhub-online</a>。
       页面只负责前端展示，邮件读取由你的 boji1334 后端完成。
@@ -535,26 +557,20 @@
     const withinSeconds = document.querySelector('#withinSeconds');
     const topCount = document.querySelector('#topCount');
     const codeButton = document.querySelector('#codeButton');
-    const fetchButton = document.querySelector('#fetchButton');
     const clearButton = document.querySelector('#clearButton');
-    const statusBox = document.querySelector('#status');
     const codeResult = document.querySelector('#codeResult');
-    const resultRows = document.querySelector('#resultRows');
-    const bodyView = document.querySelector('#bodyView');
-    const bodyTitle = document.querySelector('#bodyTitle');
-    const mailBody = document.querySelector('#mailBody');
-    const closeBody = document.querySelector('#closeBody');
-
-    let lastAccountLine = '';
-    let lastFolder = 'INBOX';
-
-    function setStatus(message) {
-      statusBox.textContent = message;
-    }
+    const loading = document.querySelector('#loading');
+    const loadingText = document.querySelector('#loadingText');
 
     function setCodeResult(message, type = '') {
       codeResult.innerHTML = message;
       codeResult.className = `quick-result ${type}`.trim();
+    }
+
+    function setLoading(active, text = '正在读取最近验证码...') {
+      loading.classList.toggle('active', active);
+      loadingText.textContent = text;
+      codeButton.disabled = active;
     }
 
     function escapeHtml(value) {
@@ -603,18 +619,6 @@
       return json;
     }
 
-    async function postForm(path, data) {
-      const response = await fetch(`${API_BASE}${path}`, {
-        method: 'POST',
-        body: params(data),
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok || !json.ok) {
-        throw new Error(json.error || json.message || `请求失败：${response.status}`);
-      }
-      return json;
-    }
-
     function readAccount() {
       const value = normalizeAccountInput(accountLine.value);
       if (!value) {
@@ -622,7 +626,6 @@
         return '';
       }
       accountLine.value = value;
-      lastAccountLine = value;
       return value;
     }
 
@@ -630,10 +633,8 @@
       const value = readAccount();
       if (!value) return;
 
-      bodyView.classList.remove('active');
-      codeButton.disabled = true;
       setCodeResult('正在读取最近邮件...', '');
-      setStatus('正在调用 POST /api/v1/code');
+      setLoading(true, '正在调用后端接口...');
 
       try {
         const data = await postJson('/api/v1/code', {
@@ -650,85 +651,16 @@
             `<span class="muted">${escapeHtml(age)} ${escapeHtml(data.subject || '')}</span>`,
             'ok',
           );
-          setStatus(`已读取：${escapeHtml(data.email || '')}`);
         } else {
           setCodeResult(escapeHtml(data.message || '未找到验证码。'), 'err');
-          setStatus(`接口返回：${escapeHtml(data.reason || 'not_found')}`);
         }
       } catch (error) {
         const message = error instanceof TypeError
           ? '后端接口连接失败，请检查 www.boji1334.com 的 HTTPS / 部署状态。'
           : (error.message || '读取失败。');
         setCodeResult(escapeHtml(message), 'err');
-        setStatus('读取失败');
       } finally {
-        codeButton.disabled = false;
-      }
-    }
-
-    function renderRows(rows) {
-      if (!rows.length) {
-        resultRows.innerHTML = '<tr><td colspan="6" class="muted">没有读取到邮件。</td></tr>';
-        return;
-      }
-
-      resultRows.innerHTML = rows.map((row, index) => {
-        const code = row.code
-          ? `<button class="code" type="button" data-copy="${escapeHtml(row.code)}">${escapeHtml(row.code)}</button>`
-          : '<span class="muted">-</span>';
-        return `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(row.date || '-')}</td>
-            <td>${escapeHtml(row.sender || '-')}</td>
-            <td>${escapeHtml(row.subject || '-')}</td>
-            <td>${code}</td>
-            <td><button class="button secondary" type="button" data-view="${escapeHtml(row.msg_id)}">查看全文</button></td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    async function fetchMail() {
-      const value = readAccount();
-      if (!value) return;
-
-      bodyView.classList.remove('active');
-      fetchButton.disabled = true;
-      setStatus('正在连接 Outlook 并读取邮件列表...');
-      resultRows.innerHTML = '<tr><td colspan="6" class="muted">读取中，请稍候。</td></tr>';
-
-      try {
-        const data = await postForm('/api/sms/fetch', {
-          account_line: value,
-          top: String(topCount.value || '20'),
-        });
-        lastFolder = data.used_folder || 'INBOX';
-        renderRows(data.rows || []);
-        setStatus(`邮件列表已读取：${data.account}，文件夹：${lastFolder}`);
-      } catch (error) {
-        resultRows.innerHTML = '<tr><td colspan="6" class="muted">读取失败。</td></tr>';
-        setStatus(error.message || '读取失败。');
-      } finally {
-        fetchButton.disabled = false;
-      }
-    }
-
-    async function viewMail(msgId) {
-      if (!lastAccountLine || !msgId) return;
-      setStatus('正在读取邮件全文...');
-      try {
-        const data = await postForm('/api/sms/view', {
-          account_line: lastAccountLine,
-          msg_id: msgId,
-          folder: lastFolder,
-        });
-        bodyTitle.textContent = data.subject || '邮件全文';
-        mailBody.textContent = data.body_text || '没有正文内容。';
-        bodyView.classList.add('active');
-        setStatus('邮件全文已打开。');
-      } catch (error) {
-        setStatus(error.message || '读取全文失败。');
+        setLoading(false);
       }
     }
 
@@ -737,37 +669,10 @@
       void fetchCode();
     });
 
-    fetchButton.addEventListener('click', () => {
-      void fetchMail();
-    });
-
     clearButton.addEventListener('click', () => {
       accountLine.value = '';
-      resultRows.innerHTML = '<tr><td colspan="6" class="muted">还没有读取结果。</td></tr>';
-      bodyView.classList.remove('active');
       setCodeResult('等待输入账号信息。');
-      setStatus('程序接口：POST /api/v1/code');
-    });
-
-    closeBody.addEventListener('click', () => {
-      bodyView.classList.remove('active');
-    });
-
-    resultRows.addEventListener('click', async (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-
-      const code = target.getAttribute('data-copy');
-      if (code) {
-        await navigator.clipboard.writeText(code).catch(() => {});
-        setStatus(`验证码 ${code} 已复制。`);
-        return;
-      }
-
-      const msgId = target.getAttribute('data-view');
-      if (msgId) {
-        void viewMail(msgId);
-      }
+      setLoading(false);
     });
   </script>
 </body>
