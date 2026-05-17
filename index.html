@@ -550,7 +550,7 @@
   </main>
 
   <script>
-    const API_BASES = ['https://www.boji1334.com', 'https://47.100.93.204.nip.io'];
+    const API_BASE = 'https://www.boji1334.com';
     const form = document.querySelector('#codeForm');
     const accountLine = document.querySelector('#accountLine');
     const provider = document.querySelector('#provider');
@@ -607,29 +607,23 @@
     }
 
     async function postJson(path, data) {
-      let lastError = null;
-      for (const base of API_BASES) {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 9000);
-        try {
-          const response = await fetch(`${base}${path}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-            signal: controller.signal,
-          });
-          const json = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            throw new Error(json.message || json.error || `请求失败：${response.status}`);
-          }
-          return json;
-        } catch (error) {
-          lastError = error;
-        } finally {
-          window.clearTimeout(timeout);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 12000);
+      try {
+        const response = await fetch(`${API_BASE}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+          signal: controller.signal,
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(json.message || json.error || `请求失败：${response.status}`);
         }
+        return json;
+      } finally {
+        window.clearTimeout(timeout);
       }
-      throw lastError || new Error('后端接口连接失败');
     }
 
     function readAccount() {
