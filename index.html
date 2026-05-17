@@ -358,11 +358,29 @@
     }
 
     .copy-code {
-      min-height: 38px;
-      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 112px;
+      min-height: 42px;
+      border: 0;
       border-radius: 8px;
-      background: var(--ink);
-      font-size: 14px;
+      padding: 0 14px;
+      color: #fff;
+      background: #152033;
+      font-size: 15px;
+      font-weight: 850;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(21, 32, 51, 0.16);
+    }
+
+    .copy-code:hover {
+      background: #263247;
+      text-decoration: none;
+    }
+
+    .copy-code.done {
+      background: var(--green);
     }
 
     .inline-actions {
@@ -674,7 +692,7 @@
           setCodeResult(
             `${escapeHtml(data.provider || '验证码')} 验证码` +
             `<span class="code-line"><span class="code-big">${escapeHtml(data.code)}</span>` +
-            `<button class="button copy-code" type="button" data-copy-code="${escapeHtml(data.code)}">复制</button></span>` +
+            `<button class="copy-code" type="button" data-copy-code="${escapeHtml(data.code)}">复制验证码</button></span>` +
             `<span class="muted">${escapeHtml(age)} ${escapeHtml(data.subject || '')}</span>`,
             'ok',
           );
@@ -730,11 +748,13 @@
       try {
         await copyText(code);
         button.textContent = '已复制';
+        button.classList.add('done');
       } catch (error) {
         button.textContent = '复制失败';
       } finally {
         window.setTimeout(() => {
           button.textContent = oldText || '复制';
+          button.classList.remove('done');
         }, 1300);
       }
     });
