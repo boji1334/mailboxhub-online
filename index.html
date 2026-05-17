@@ -656,7 +656,10 @@
           setStatus(`接口返回：${escapeHtml(data.reason || 'not_found')}`);
         }
       } catch (error) {
-        setCodeResult(escapeHtml(error.message || '读取失败。'), 'err');
+        const message = error instanceof TypeError
+          ? '后端接口连接失败，请检查 www.boji1334.com 的 HTTPS / 部署状态。'
+          : (error.message || '读取失败。');
+        setCodeResult(escapeHtml(message), 'err');
         setStatus('读取失败');
       } finally {
         codeButton.disabled = false;
