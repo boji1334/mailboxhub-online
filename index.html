@@ -340,7 +340,6 @@
     }
 
     .code-big {
-      display: block;
       margin-top: 4px;
       color: var(--ink);
       font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -348,6 +347,22 @@
       line-height: 1.22;
       font-weight: 950;
       letter-spacing: 0;
+    }
+
+    .code-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .copy-code {
+      min-height: 38px;
+      padding: 0 12px;
+      border-radius: 8px;
+      background: var(--ink);
+      font-size: 14px;
     }
 
     .inline-actions {
@@ -561,6 +576,7 @@
     const codeResult = document.querySelector('#codeResult');
     const loading = document.querySelector('#loading');
     const loadingText = document.querySelector('#loadingText');
+    let latestCode = '';
 
     function setCodeResult(message, type = '') {
       codeResult.innerHTML = message;
@@ -629,6 +645,7 @@
     function readAccount() {
       const value = normalizeAccountInput(accountLine.value);
       if (!value) {
+        latestCode = '';
         setCodeResult('请先粘贴账号信息。', 'err');
         return '';
       }
@@ -653,15 +670,20 @@
 
         if (data.ok) {
           const age = Number.isFinite(Number(data.age_seconds)) ? `${data.age_seconds} 秒前` : '';
+          latestCode = String(data.code || '');
           setCodeResult(
-            `${escapeHtml(data.provider || '验证码')} 验证码<span class="code-big">${escapeHtml(data.code)}</span>` +
+            `${escapeHtml(data.provider || '验证码')} 验证码` +
+            `<span class="code-line"><span class="code-big">${escapeHtml(data.code)}</span>` +
+            `<button class="button copy-code" type="button" data-copy-code="${escapeHtml(data.code)}">复制</button></span>` +
             `<span class="muted">${escapeHtml(age)} ${escapeHtml(data.subject || '')}</span>`,
             'ok',
           );
         } else {
+          latestCode = '';
           setCodeResult(escapeHtml(data.message || '未找到验证码。'), 'err');
         }
       } catch (error) {
+        latestCode = '';
         const message = error instanceof TypeError
           ? '后端接口连接失败，请检查 www.boji1334.com 的 HTTPS / 部署状态。'
           : (error.message || '读取失败。');
@@ -671,6 +693,22 @@
       }
     }
 
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const input = document.createElement('textarea');
+      input.value = text;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.left = '-9999px';
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+    }
+
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       void fetchCode();
@@ -678,8 +716,27 @@
 
     clearButton.addEventListener('click', () => {
       accountLine.value = '';
+      latestCode = '';
       setCodeResult('等待输入账号信息。');
       setLoading(false);
+    });
+
+    codeResult.addEventListener('click', async (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest('[data-copy-code]') : null;
+      if (!button) return;
+      const code = button.getAttribute('data-copy-code') || latestCode;
+      if (!code) return;
+      const oldText = button.textContent;
+      try {
+        await copyText(code);
+        button.textContent = '已复制';
+      } catch (error) {
+        button.textContent = '复制失败';
+      } finally {
+        window.setTimeout(() => {
+          button.textContent = oldText || '复制';
+        }, 1300);
+      }
     });
   </script>
 </body>
