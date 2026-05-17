@@ -531,8 +531,8 @@
             <div class="number">
               <label for="provider">平台</label>
               <select id="provider" name="provider">
-                <option value="openai" selected>OpenAI</option>
-                <option value="any">不限</option>
+                <option value="any" selected>自动识别</option>
+                <option value="openai">OpenAI</option>
               </select>
             </div>
             <div class="number">
@@ -547,7 +547,7 @@
             <button class="button secondary" type="button" id="clearButton">清空</button>
           </div>
         </form>
-        <p class="note">默认只返回最近 30 秒内的 OpenAI 验证码。程序也可以直接调用后端 `POST /api/v1/code` 获取 code 字段。</p>
+        <p class="note">默认优先读取最近 30 秒内的验证码；实时窗口未命中时，会继续从最近邮件列表中查找可用验证码。</p>
         <div id="loading" class="loading">
           <span class="spinner"></span><span id="loadingText">正在读取最近验证码...</span>
           <div class="progress"><span></span></div>
@@ -642,7 +642,7 @@
 
     async function postJson(path, data) {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 12000);
+      const timeout = window.setTimeout(() => controller.abort(), 16000);
       try {
         const response = await fetch(`${API_BASE}${path}`, {
           method: 'POST',
@@ -658,6 +658,55 @@
       } finally {
         window.clearTimeout(timeout);
       }
+    }
+
+    async function postForm(path, data) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 22000);
+      const body = new URLSearchParams();
+      Object.entries(data).forEach(([key, value]) => body.append(key, value));
+      try {
+        const response = await fetch(`${API_BASE}${path}`, {
+          method: 'POST',
+          body,
+          signal: controller.signal,
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || !json.ok) {
+          throw new Error(json.message || json.error || `请求失败：${response.status}`);
+        }
+        return json;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
+    function renderCode(data, label = '') {
+      const code = String(data.code || '');
+      const age = Number.isFinite(Number(data.age_seconds)) ? `${data.age_seconds} 秒前` : '';
+      latestCode = code;
+      setCodeResult(
+        `${escapeHtml(label || data.provider || '验证码')} 验证码` +
+        `<span class="code-line"><span class="code-big">${escapeHtml(code)}</span>` +
+        `<button class="copy-code" type="button" data-copy-code="${escapeHtml(code)}">复制验证码</button></span>` +
+        `<span class="muted">${escapeHtml(data.note || age)} ${escapeHtml(data.subject || '')}</span>`,
+        'ok',
+      );
+    }
+
+    async function fetchFallbackCode(account) {
+      const data = await postForm('/api/sms/fetch', {
+        account_line: account,
+        top: Number(topCount.value || 20),
+      });
+      const row = (data.rows || []).find((item) => item && item.code);
+      if (!row) return false;
+      renderCode({
+        code: row.code,
+        subject: row.subject || '',
+        note: '来自邮件列表，可能超过实时窗口',
+      }, '邮件');
+      return true;
     }
 
     function readAccount() {
@@ -681,31 +730,33 @@
       try {
         const data = await postJson('/api/v1/code', {
           account_line: value,
-          provider: provider.value || 'openai',
+          provider: provider.value || 'any',
           within_seconds: Number(withinSeconds.value || 30),
           top: Number(topCount.value || 20),
         });
 
         if (data.ok) {
-          const age = Number.isFinite(Number(data.age_seconds)) ? `${data.age_seconds} 秒前` : '';
-          latestCode = String(data.code || '');
-          setCodeResult(
-            `${escapeHtml(data.provider || '验证码')} 验证码` +
-            `<span class="code-line"><span class="code-big">${escapeHtml(data.code)}</span>` +
-            `<button class="copy-code" type="button" data-copy-code="${escapeHtml(data.code)}">复制验证码</button></span>` +
-            `<span class="muted">${escapeHtml(age)} ${escapeHtml(data.subject || '')}</span>`,
-            'ok',
-          );
+          renderCode(data, '实时');
         } else {
-          latestCode = '';
-          setCodeResult(escapeHtml(data.message || '未找到验证码。'), 'err');
+          setLoading(true, '实时窗口未命中，正在检查邮件列表...');
+          const foundFallback = await fetchFallbackCode(value);
+          if (!foundFallback) {
+            latestCode = '';
+            setCodeResult(escapeHtml(data.message || '未找到验证码。'), 'err');
+          }
         }
       } catch (error) {
-        latestCode = '';
-        const message = error instanceof TypeError
-          ? '后端接口连接失败，请检查 www.boji1334.com 的 HTTPS / 部署状态。'
-          : (error.message || '读取失败。');
-        setCodeResult(escapeHtml(message), 'err');
+        try {
+          setLoading(true, '实时接口未命中，正在检查邮件列表...');
+          const foundFallback = await fetchFallbackCode(value);
+          if (!foundFallback) throw error;
+        } catch (fallbackError) {
+          latestCode = '';
+          const message = fallbackError instanceof TypeError
+            ? '后端接口连接失败，请检查 www.boji1334.com 的 HTTPS / 部署状态。'
+            : (fallbackError.message || error.message || '读取失败。');
+          setCodeResult(escapeHtml(message), 'err');
+        }
       } finally {
         setLoading(false);
       }
